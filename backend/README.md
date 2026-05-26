@@ -1,51 +1,48 @@
 # AI Study Assistant — Backend
 
-Node.js + Express API: topics → OpenAI (GPT-4o) → structured study JSON, with SQLite session history.
-
-Also serves the **frontend** static files in production (single deploy).
+Express API + SQLite history. Generates study content via **Gemini (free)**, Groq, or OpenAI.
 
 ## Setup
 
 ```bash
-cd backend
 npm install
 cp .env.example .env
-# Set OPENAI_API_KEY in .env
+```
+
+### Free trial (recommended)
+
+1. Create a key at [Google AI Studio](https://aistudio.google.com/apikey) (no billing).
+2. In `.env`:
+
+```env
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=AIza...
+```
+
+```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+## Environment variables
 
-## Scripts
-
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Dev server with file watch |
-| `npm start` | Production server (`NODE_ENV=production`) |
+| Variable | Required when | Description |
+|----------|----------------|-------------|
+| `LLM_PROVIDER` | Always | `gemini` \| `groq` \| `openai` (default: `gemini`) |
+| `GEMINI_API_KEY` | `gemini` | Free Google AI key |
+| `GROQ_API_KEY` | `groq` | Free Groq key |
+| `OPENAI_API_KEY` | `openai` | OpenAI key (billing required) |
+| `LLM_MAX_TOKENS` | No | Default `2200` |
+| `PORT` | No | Default `3000` |
 
 ## API routes
 
 | Method | Route | Description |
 |--------|--------|-------------|
-| `GET` | `/api/health` | Health check |
-| `GET` | `/config.js` | Runtime config (`apiBase` for frontend) |
-| `POST` | `/api/study/explain` | Generate study content |
-| `GET` | `/api/study/history` | List sessions (`?limit=20&offset=0`) |
-| `GET` | `/api/study/history/:id` | Get session by ID |
-
-## Environment variables
-
-See `.env.example`. Keys are read from `process.env` only — never hardcoded.
-
-| Variable | Required | Notes |
-|----------|----------|-------|
-| `OPENAI_API_KEY` | Yes | OpenAI secret |
-| `PORT` | No | Defaults to 3000; Render sets automatically |
-| `NODE_ENV` | No | Use `production` when deployed |
-| `CORS_ORIGIN` | No | Comma-separated origins |
-| `PUBLIC_API_BASE` | No | Empty for same-origin deploy |
-| `DATABASE_PATH` | No | SQLite path |
+| `GET` | `/api/health` | Health + `llmProvider` |
+| `POST` | `/api/study/explain` | Generate study guide |
+| `GET` | `/api/study/history` | List sessions |
+| `GET` | `/api/study/history/:id` | Get session |
 
 ## Deployment
 
-See [../DEPLOYMENT.md](../DEPLOYMENT.md).
+See [../DEPLOYMENT.md](../DEPLOYMENT.md). Set `GEMINI_API_KEY` in Render env for free hosting.

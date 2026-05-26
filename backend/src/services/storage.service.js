@@ -1,4 +1,4 @@
-import Database from 'better-sqlite3';
+import { DatabaseSync } from 'node:sqlite';
 import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
@@ -16,8 +16,8 @@ function ensureDataDir() {
 
 function initDb() {
   ensureDataDir();
-  db = new Database(env.databasePath);
-  db.pragma('journal_mode = WAL');
+  db = new DatabaseSync(env.databasePath);
+  db.exec('PRAGMA journal_mode = WAL');
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS study_sessions (
@@ -49,19 +49,11 @@ export function saveStudySession({ topic, level, focus, content, model }) {
 
   const stmt = database.prepare(`
     INSERT INTO study_sessions (id, topic, level, focus, response_json, model, created_at)
-    VALUES (@id, @topic, @level, @focus, @responseJson, @model, @createdAt)
+    VALUES (?, ?, ?, ?, ?, ?, ?)
   `);
 
   try {
-    stmt.run({
-      id,
-      topic,
-      level,
-      focus,
-      responseJson: JSON.stringify(content),
-      model: model ?? null,
-      createdAt,
-    });
+    stmt.run(id, topic, level, focus, JSON.stringify(content), model ?? null, createdAt);
   } catch {
     throw new AppError('Failed to save study session', 500, 'STORAGE_ERROR');
   }
@@ -78,16 +70,51 @@ export function listStudySessions({ limit, offset }) {
     SELECT id, topic, level, focus, model, created_at AS createdAt
     FROM study_sessions
     ORDER BY created_at DESC
-    LIMIT @limit OFFSET @offset
+    LIMIT ? OFFSET ?
   `
     )
-    .all({ limit, offset });
+    .all(limit, offset);
 
-  const { total } = database
-    .prepare('SELECT COUNT(*) AS total FROM study_sessions')
-    .get();
+  const total = database.prepare('SELECT COUNT(*) AS total FROM study_sessions').get().total;
 
   return { sessions: rows, total, limit, offset };
+}
+
+export function findMatchingSession({ topic, level, focus }) {
+  const database = getDatabase();
+  const normalizedTopic = topic.trim().toLowerCase();
+
+  const row = database
+    .prepare(
+      `
+    SELECT id, topic, level, focus, response_json AS responseJson, model, created_at AS createdAt
+    FROM study_sessions
+    WHERE LOWER(TRIM(topic)) = ?
+      AND level = ?
+      AND focus = ?
+    ORDER BY created_at DESC
+    LIMIT 1
+  `
+    )
+    .get(normalizedTopic, level, focus);
+
+  if (!row) {
+    return null;
+  }
+
+  try {
+    return {
+      id: row.id,
+      topic: row.topic,
+      level: row.level,
+      focus: row.focus,
+      content: JSON.parse(row.responseJson),
+      model: row.model,
+      createdAt: row.createdAt,
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function getStudySessionById(id) {
@@ -98,10 +125,10 @@ export function getStudySessionById(id) {
       `
     SELECT id, topic, level, focus, response_json AS responseJson, model, created_at AS createdAt
     FROM study_sessions
-    WHERE id = @id
+    WHERE id = ?
   `
     )
-    .get({ id });
+    .get(id);
 
   if (!row) {
     return null;

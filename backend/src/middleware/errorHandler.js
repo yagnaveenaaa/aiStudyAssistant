@@ -13,12 +13,16 @@ export function notFoundHandler(req, res) {
 
 export function errorHandler(err, req, res, _next) {
   if (err instanceof AppError) {
+    const payload = {
+      code: err.code,
+      message: err.message,
+    };
+    if (!env.isProduction && err.details) {
+      payload.details = err.details;
+    }
     return res.status(err.statusCode).json({
       success: false,
-      error: {
-        code: err.code,
-        message: err.message,
-      },
+      error: payload,
     });
   }
 

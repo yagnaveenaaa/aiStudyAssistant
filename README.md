@@ -1,50 +1,53 @@
 # AI Study Assistant
 
-Topic-based study guides powered by OpenAI (GPT-4o), with session history.
+Topic-based study guides with AI, plus session history.
 
-**Production-ready:** environment variables only (no hardcoded API keys), `process.env.PORT`, CORS, rate limiting, and deployment guides.
+**Default: Google Gemini (free API key, no billing required).** OpenAI and Groq are also supported.
 
-## Quick start (local)
+## Quick start
+
+1. **Get a free Gemini API key** (no credit card): [https://aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+
+2. **Backend setup**
 
 ```bash
 cd backend
 npm install
 cp .env.example .env
-# Set OPENAI_API_KEY in .env
+```
+
+Edit `backend/.env`:
+
+```env
+LLM_PROVIDER=gemini
+GEMINI_API_KEY=your_key_here
+```
+
+3. **Run**
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) — Express serves the frontend and API on the same origin.
+4. Open [http://localhost:3000](http://localhost:3000)
 
-The frontend loads `/config.js` for the API base URL (empty = same origin).
+## LLM providers
+
+| Provider | Cost | Key URL |
+|----------|------|---------|
+| **gemini** (default) | Free tier | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+| **groq** | Free tier | [console.groq.com/keys](https://console.groq.com/keys) |
+| **openai** | Paid billing | [platform.openai.com/api-keys](https://platform.openai.com/api-keys) |
+
+Set `LLM_PROVIDER` in `backend/.env` to switch.
 
 ## Project layout
 
 ```
-frontend/          HTML, CSS, vanilla JS UI
-backend/           Express API, OpenAI, SQLite history
-scripts/           Build helpers (Vercel config generation)
-render.yaml        Render Blueprint (single full-stack deploy)
-vercel.json        Optional Vercel frontend + API proxy
-DEPLOYMENT.md      Render & Vercel deployment steps
+frontend/     HTML, CSS, vanilla JS
+backend/      Express API, SQLite history, LLM providers
 ```
 
-## How frontend connects to backend
+## Deployment
 
-| Deploy mode | API URL |
-|-------------|---------|
-| Express serves both (default) | `apiBase: ""` → calls `/api/...` on same host |
-| Vercel + Render | Set `API_BASE_URL` or use `vercel.json` rewrites |
-
-See [DEPLOYMENT.md](DEPLOYMENT.md) for full instructions.
-
-## API
-
-See [backend/README.md](backend/README.md).
-
-## Environment variables
-
-Copy `backend/.env.example` to `backend/.env`. Never commit `.env`.
-
-Required: `OPENAI_API_KEY`  
-Port: `PORT` (auto-set on Render)
+See [DEPLOYMENT.md](DEPLOYMENT.md).

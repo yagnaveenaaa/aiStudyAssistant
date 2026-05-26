@@ -1,3 +1,4 @@
+import { env } from '../config/env.js';
 import * as studyService from '../services/study.service.js';
 
 export async function explain(req, res, next) {
@@ -13,6 +14,7 @@ export async function explain(req, res, next) {
         model: result.meta.model,
         generatedAt: result.meta.generatedAt,
         usage: result.meta.usage,
+        cached: result.meta.cached ?? false,
       },
     });
   } catch (err) {
@@ -66,6 +68,7 @@ export function health(_req, res) {
     data: {
       status: 'ok',
       timestamp: new Date().toISOString(),
+      llmProvider: env.llmProvider,
     },
   });
 }

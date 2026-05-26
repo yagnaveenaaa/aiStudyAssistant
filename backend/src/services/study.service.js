@@ -1,8 +1,28 @@
-import { generateStudyContent } from './openai.service.js';
-import { saveStudySession, listStudySessions, getStudySessionById } from './storage.service.js';
+import { generateStudyContent } from './llm/index.js';
+import {
+  saveStudySession,
+  listStudySessions,
+  getStudySessionById,
+  findMatchingSession,
+} from './storage.service.js';
 import { AppError } from '../utils/AppError.js';
 
-export async function explainTopic({ topic, level, focus }) {
+export async function explainTopic({ topic, level, focus, forceRefresh = false }) {
+  if (!forceRefresh) {
+    const existing = findMatchingSession({ topic, level, focus });
+    if (existing) {
+      return {
+        sessionId: existing.id,
+        content: existing.content,
+        meta: {
+          model: existing.model,
+          generatedAt: existing.createdAt,
+          cached: true,
+        },
+      };
+    }
+  }
+
   const { content, model, usage } = await generateStudyContent({ topic, level, focus });
 
   const session = saveStudySession({
@@ -20,6 +40,7 @@ export async function explainTopic({ topic, level, focus }) {
       model,
       generatedAt: session.createdAt,
       usage,
+      cached: false,
     },
   };
 }

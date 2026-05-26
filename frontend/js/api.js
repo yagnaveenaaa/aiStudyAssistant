@@ -9,6 +9,7 @@ async function parseResponse(response) {
     const err = new Error(message);
     err.code = code;
     err.status = response.status;
+    err.details = body?.error?.details ?? null;
     throw err;
   }
 
@@ -27,8 +28,23 @@ function apiUrl(path) {
   return `${base}${path}`;
 }
 
+async function safeFetch(url, options) {
+  try {
+    return await fetch(url, options);
+  } catch (err) {
+    if (err instanceof TypeError) {
+      const hint =
+        'Cannot reach the server. Start the backend (npm run dev in backend/) and open http://localhost:3000 — not Live Server or a file path.';
+      const networkErr = new Error(hint);
+      networkErr.code = 'NETWORK_ERROR';
+      throw networkErr;
+    }
+    throw err;
+  }
+}
+
 export async function explainTopic({ topic, level, focus }) {
-  const response = await fetch(apiUrl('/api/study/explain'), {
+  const response = await safeFetch(apiUrl('/api/study/explain'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ topic, level, focus }),
@@ -39,11 +55,11 @@ export async function explainTopic({ topic, level, focus }) {
 
 export async function fetchHistory({ limit = 20, offset = 0 } = {}) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  const response = await fetch(apiUrl(`/api/study/history?${params}`));
+  const response = await safeFetch(apiUrl(`/api/study/history?${params}`));
   return parseResponse(response);
 }
 
 export async function fetchSession(id) {
-  const response = await fetch(apiUrl(`/api/study/history/${id}`));
+  const response = await safeFetch(apiUrl(`/api/study/history/${id}`));
   return parseResponse(response);
 }

@@ -14,6 +14,9 @@ const historyPanel = document.getElementById('history-panel');
 const historyList = document.getElementById('history-list');
 const historyEmpty = document.getElementById('history-empty');
 
+let submitCooldownUntil = 0;
+let cooldownTimerId = null;
+
 function setStatus(message, type = 'loading') {
   statusEl.hidden = false;
   statusEl.textContent = message;
@@ -26,12 +29,37 @@ function clearStatus() {
   statusEl.className = 'status';
 }
 
+function isOnCooldown() {
+  return Date.now() < submitCooldownUntil;
+}
+
+function startCooldown(seconds = 120) {
+  submitCooldownUntil = Date.now() + seconds * 1000;
+  if (cooldownTimerId) clearInterval(cooldownTimerId);
+  cooldownTimerId = setInterval(() => {
+    if (!isOnCooldown()) {
+      clearInterval(cooldownTimerId);
+      cooldownTimerId = null;
+      submitBtn.textContent = 'Generate study guide';
+      submitBtn.disabled = false;
+      return;
+    }
+    const left = Math.ceil((submitCooldownUntil - Date.now()) / 1000);
+    submitBtn.textContent = `Wait ${left}s…`;
+  }, 1000);
+}
+
 function setLoading(loading) {
-  submitBtn.disabled = loading;
+  const cooldown = isOnCooldown();
+  submitBtn.disabled = loading || cooldown;
   topicInput.disabled = loading;
   levelSelect.disabled = loading;
   focusSelect.disabled = loading;
-  submitBtn.textContent = loading ? 'Generating…' : 'Generate study guide';
+  if (!cooldown && !loading) {
+    submitBtn.textContent = 'Generate study guide';
+  } else if (loading && !cooldown) {
+    submitBtn.textContent = 'Generating…';
+  }
 }
 
 function showResults(data) {
@@ -114,6 +142,8 @@ async function loadSession(id) {
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  if (isOnCooldown()) return;
+
   const topic = topicInput.value.trim();
   if (topic.length < 3) return;
 
@@ -122,16 +152,41 @@ form.addEventListener('submit', async (e) => {
   setStatus('Generating your study guide. This may take a moment…', 'loading');
 
   try {
-    const { data } = await explainTopic({
+    const response = await explainTopic({
       topic,
       level: levelSelect.value,
       focus: focusSelect.value,
     });
 
     clearStatus();
-    showResults(data);
+    showResults(response.data);
+
+    if (response.meta?.cached) {
+      setStatus('Loaded from your saved history (no new API call).', 'loading');
+      setTimeout(clearStatus, 4000);
+    }
   } catch (err) {
-    setStatus(err.message ?? 'Something went wrong', 'error');
+    const msg = err.message ?? 'Something went wrong';
+    const details =
+      err.details && typeof err.details === 'object'
+        ? ` [${err.code}: model=${err.details.model ?? '?'}]`
+        : err.code
+          ? ` [${err.code}]`
+          : '';
+    const isQuota = err.code === 'LLM_QUOTA_EXCEEDED' || err.code === 'OPENAI_QUOTA_EXCEEDED';
+    const isOverloaded = err.code === 'LLM_OVERLOADED' || err.status === 503;
+    const isRateLimit =
+      err.code === 'LLM_RATE_LIMIT' ||
+      err.code === 'OPENAI_RATE_LIMIT' ||
+      err.status === 429;
+
+    if (isQuota || isRateLimit || isOverloaded) {
+      startCooldown(isOverloaded ? 45 : isQuota ? 30 : 60);
+      setStatus(`${msg}${details}`, 'error');
+    } else {
+      setStatus(`${msg}${details}`, 'error');
+    }
+    console.error('Study guide error:', err);
     resultsEl.hidden = true;
   } finally {
     setLoading(false);

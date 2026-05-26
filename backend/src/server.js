@@ -16,7 +16,7 @@ const app = express();
 
 app.set('trust proxy', 1);
 
-const connectSrc = ["'self'", ...env.corsOrigins];
+const connectSrc = ["'self'", ...env.corsOrigins, 'http://localhost:3000', 'http://127.0.0.1:3000'];
 if (env.publicApiBase) {
   connectSrc.push(env.publicApiBase);
 }
@@ -89,7 +89,14 @@ const port = Number(process.env.PORT) || env.port;
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`AI Study Assistant running on port ${port}`);
   console.log(`Environment: ${env.nodeEnv}`);
-  console.log(`OpenAI model: ${env.openaiModel}`);
+  console.log(`LLM provider: ${env.llmProvider}`);
+  const model =
+    env.llmProvider === 'gemini'
+      ? env.geminiModel
+      : env.llmProvider === 'groq'
+        ? env.groqModel
+        : env.openaiModel;
+  console.log(`LLM model: ${model}`);
   if (env.publicApiBase) {
     console.log(`Public API base: ${env.publicApiBase}`);
   }
